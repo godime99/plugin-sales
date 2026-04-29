@@ -316,7 +316,7 @@
     </div>
 
     <div class="price-tag">
-      <span class="price-amount">₩ 3,000</span>
+      <span class="price-amount">₩ 30,000</span>
       <span class="price-period" data-i18n="priceLabel">/ 영구 라이센스</span>
     </div>
 
@@ -395,13 +395,7 @@
       <label data-i18n="labelPlugin">구매 플러그인</label>
       <select id="input-plugin">
         <option value="Purge & Save">Purge &amp; Save</option>
-        <option value="Image Compare">Image Compare</option>
       </select>
-    </div>
-
-    <div class="form-group">
-      <label data-i18n="labelAmount">입금액</label>
-      <input type="text" id="input-amount" placeholder="3,000">
     </div>
 
     <div id="form-status" class="form-status"></div>
@@ -569,20 +563,19 @@ async function submitForm() {
   const name   = document.getElementById('input-name').value.trim();
   const email  = document.getElementById('input-email').value.trim();
   const plugin = document.getElementById('input-plugin').value;
-  const amount = document.getElementById('input-amount').value.trim();
   const status = document.getElementById('form-status');
   const btn    = document.getElementById('submit-btn');
 
   // Validation
   if (!name)                         return showStatus(t.errName, 'error');
   if (!email || !email.includes('@')) return showStatus(t.errEmail, 'error');
-  if (!amount)                       return showStatus(t.errAmount, 'error');
 
   btn.disabled = true;
   showStatus(t.sending, 'loading');
 
   const payload = {
-    name, email, plugin, amount,
+    name, email, plugin,
+    amount: '-',
     date: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
     status: '대기 중'
   };
