@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SketchUp Plugins — Purge & Save</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0e0e0f;
+    --surface:  #17171a;
+    --border:   #2a2a30;
+    --accent:   #c8f04a;
+    --accent2:  #4af0c8;
+    --text:     #f0f0ec;
+    --muted:    #6b6b75;
+    --card:     #1c1c21;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 1000; opacity: .4;
+  }
+
+  /* ── Lang toggle ── */
+  .lang-bar {
+    position: fixed; top: 24px; right: 32px;
+    display: flex; gap: 4px; z-index: 999;
+  }
+  .lang-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); padding: 6px 14px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s;
+  }
+  .lang-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* ── Step nav ── */
+  .step-nav {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 999; align-items: center;
+  }
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); transition: all .3s; cursor: pointer;
+  }
+  .step-dot.active { background: var(--accent); width: 28px; border-radius: 4px; }
+
+  /* ── Pages ── */
+  .page {
+    min-height: 100vh;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 80px 24px; position: relative;
+  }
+  .page.active { display: flex; animation: fadeUp .5s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Page 1: Intro ── */
+  .intro-wrap { max-width: 720px; width: 100%; text-align: center; }
+
+  .badge {
+    display: inline-block;
+    background: rgba(200, 240, 74, .1); border: 1px solid rgba(200,240,74,.3);
+    color: var(--accent); padding: 6px 16px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(40px, 7vw, 72px);
+    line-height: 1.05; margin-bottom: 20px;
+    letter-spacing: -.02em;
+  }
+
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .subtitle {
+    font-size: clamp(15px, 2vw, 18px);
+    color: var(--muted); line-height: 1.7;
+    margin-bottom: 48px; max-width: 540px; margin-left: auto; margin-right: auto;
+  }
+
+  /* Feature cards */
+  .features {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin-bottom: 48px; text-align: left;
+  }
+
+  @media (max-width: 640px) { .features { grid-template-columns: 1fr; } }
+
+  .feat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+    transition: border-color .2s;
+  }
+  .feat-card:hover { border-color: var(--accent); }
+  .feat-icon { font-size: 24px; margin-bottom: 12px; }
+  .feat-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .feat-desc  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* Price tag */
+  .price-tag {
+    display: inline-flex; align-items: baseline; gap: 8px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px 28px; margin-bottom: 40px;
+  }
+  .price-amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 40px; color: var(--accent);
+  }
+  .price-period { font-size: 14px; color: var(--muted); }
+
+  /* ── Page 2: Account ── */
+  .account-wrap { max-width: 500px; width: 100%; }
+
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(28px, 5vw, 48px);
+    margin-bottom: 12px; line-height: 1.1;
+  }
+
+  .step-label {
+    font-size: 12px; font-weight: 600; letter-spacing: .1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 16px;
+  }
+
+  .account-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px; margin: 32px 0;
+  }
+
+  .bank-name {
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;
+  }
+
+  .account-number {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px; letter-spacing: .04em;
+    color: var(--text); margin-bottom: 8px;
+  }
+
+  .account-holder {
+    font-size: 15px; color: var(--muted); font-weight: 500;
+  }
+
+  .copy-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(200,240,74,.1); border: 1px solid rgba(200,240,74,.3);
+    color: var(--accent); padding: 10px 20px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    margin-top: 20px; transition: all .2s; width: fit-content;
+  }
+  .copy-btn:hover { background: rgba(200,240,74,.2); }
+  .copy-btn.copied { color: var(--accent2); border-color: var(--accent2); background: rgba(74,240,200,.1); }
+
+  .notice-box {
+    background: rgba(200,240,74,.05); border: 1px solid rgba(200,240,74,.15);
+    border-radius: 12px; padding: 16px 20px;
+    font-size: 13px; color: var(--muted); line-height: 1.7;
+  }
+  .notice-box strong { color: var(--accent); }
+
+  /* ── Page 3: Form ── */
+  .form-wrap { max-width: 500px; width: 100%; }
+
+  .form-desc {
+    font-size: 15px; color: var(--muted); line-height: 1.7; margin-bottom: 32px;
+  }
+
+  .form-group { margin-bottom: 20px; }
+
+  label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+
+  input, select {
+    width: 100%; background: var(--card); border: 1px solid var(--border);
+    color: var(--text); border-radius: 12px; padding: 14px 18px;
+    font-size: 15px; font-family: 'DM Sans', sans-serif;
+    transition: border-color .2s; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  select option { background: var(--card); }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent); color: #000;
+    padding: 16px 32px; border-radius: 12px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    border: none; transition: all .2s; width: 100%; justify-content: center;
+  }
+  .btn-primary:hover { background: #d8ff5a; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  .btn-outline {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 14px 28px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-outline:hover { border-color: var(--text); color: var(--text); }
+
+  .btn-row { display: flex; gap: 12px; margin-top: 24px; }
+
+  /* Success screen */
+  .success-wrap {
+    text-align: center; max-width: 480px;
+  }
+  .success-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: rgba(200,240,74,.1); border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; margin: 0 auto 28px;
+  }
+  .success-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px; margin-bottom: 16px;
+  }
+  .success-desc { font-size: 15px; color: var(--muted); line-height: 1.7; }
+
+  /* Status message */
+  .form-status {
+    font-size: 13px; padding: 12px 16px; border-radius: 10px;
+    margin-top: 16px; display: none;
+  }
+  .form-status.error { background: rgba(240,80,80,.1); color: #f06060; border: 1px solid rgba(240,80,80,.2); display: block; }
+  .form-status.loading { background: rgba(200,240,74,.05); color: var(--muted); border: 1px solid var(--border); display: block; }
+
+  /* ── Footer nav ── */
+  .page-footer {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 12px; z-index: 999;
+  }
+
+  /* Decorative */
+  .glow {
+    position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
+  }
+  .glow-1 { width: 300px; height: 300px; background: rgba(200,240,74,.06); top: 10%; left: -5%; }
+  .glow-2 { width: 400px; height: 400px; background: rgba(74,240,200,.04); bottom: 5%; right: -10%; }
+</style>
+</head>
+<body>
+
+<!-- Lang -->
+<div class="lang-bar">
+  <button class="lang-btn active" onclick="setLang('ko')">한국어</button>
+  <button class="lang-btn" onclick="setLang('en')">English</button>
+</div>
+
+<!-- Step dots -->
+<div class="step-nav">
+  <div class="step-dot active" onclick="goTo(1)"></div>
+  <div class="step-dot" onclick="goTo(2)"></div>
+  <div class="step-dot" onclick="goTo(3)"></div>
+</div>
+
+<!-- ════════════════════════════════ PAGE 1: INTRO ════════════════════════════════ -->
+<div class="page active" id="page-1">
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="intro-wrap">
+    <div class="badge" data-i18n="badge">SketchUp Plugin</div>
+
+    <h1 data-i18n-html="title">Purge &amp; <em>Save</em></h1>
+
+    <p class="subtitle" data-i18n="subtitle">
+      스케치업 작업 파일을 더 가볍고 빠르게.<br>
+      미사용 항목 자동 정리 + 저장 알림 타이머까지.
+    </p>
+
+    <div class="features">
+      <div class="feat-card">
+        <div class="feat-icon">🗑️</div>
+        <div class="feat-title" data-i18n="feat1t">스마트 Purge</div>
+        <div class="feat-desc" data-i18n="feat1d">Components, Materials, Tags, Styles 미사용 항목을 한 번에 정리합니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⏱️</div>
+        <div class="feat-title" data-i18n="feat2t">저장 알림 타이머</div>
+        <div class="feat-desc" data-i18n="feat2d">Auto Save 없이도 주기적 저장 알림으로 작업 손실을 방지합니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📊</div>
+        <div class="feat-title" data-i18n="feat3t">파일 용량 모니터</div>
+        <div class="feat-desc" data-i18n="feat3d">실시간으로 파일 크기를 확인하고 작업 시간을 추적합니다.</div>
+      </div>
+    </div>
+
+    <div class="price-tag">
+      <span class="price-amount">₩ 30,000</span>
+      <span class="price-period" data-i18n="priceLabel">/ 영구 라이센스</span>
+    </div>
+
+    <br>
+    <button class="btn-primary" onclick="goTo(2)">
+      <span data-i18n="ctaBuy">구매하기</span>
+      <span>→</span>
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ PAGE 2: ACCOUNT ════════════════════════════════ -->
+<div class="page" id="page-2">
+  <div class="glow glow-1"></div>
+
+  <div class="account-wrap">
+    <div class="step-label" data-i18n="step2Label">Step 2 — 결제</div>
+    <h2 data-i18n="step2Title">계좌로 입금해 주세요</h2>
+    <p class="subtitle" style="text-align:left; margin-left:0;" data-i18n="step2Desc">
+      아래 계좌로 금액을 이체해 주세요.<br>입금 확인 후 24시간 이내 라이센스 키를 이메일로 발송합니다.
+    </p>
+
+    <div class="account-card">
+      <div class="bank-name">신한은행 · Shinhan Bank</div>
+      <div class="account-number">110-356-238674</div>
+      <div class="account-holder">강환국</div>
+
+      <button class="copy-btn" id="copy-btn" onclick="copyAccount()">
+        <span>📋</span>
+        <span id="copy-label" data-i18n="copyBtn">계좌번호 복사</span>
+      </button>
+    </div>
+
+    <div class="notice-box">
+      <strong data-i18n="noticeTitle">💡 입금 시 유의사항</strong><br>
+      <span data-i18n="noticeDesc">
+        입금자명을 <strong>이름+이메일 앞 4자리</strong>로 해주시면 확인이 빠릅니다.<br>
+        예: 홍길동hong / John Doejohn
+      </span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-outline" onclick="goTo(1)">← <span data-i18n="back">이전</span></button>
+      <button class="btn-primary" onclick="goTo(3)" style="flex:1">
+        <span data-i18n="nextStep">입금 완료 → 정보 입력</span>
+        <span>→</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ PAGE 3: FORM ════════════════════════════════ -->
+<div class="page" id="page-3">
+  <div class="glow glow-2"></div>
+
+  <!-- Form -->
+  <div class="form-wrap" id="form-section">
+    <div class="step-label" data-i18n="step3Label">Step 3 — 정보 입력</div>
+    <h2 data-i18n="step3Title">라이센스 발급 신청</h2>
+    <p class="form-desc" data-i18n="step3Desc">
+      입금 후 아래 정보를 입력해주세요.<br>
+      확인 즉시 이메일로 라이센스 키를 발송합니다.
+    </p>
+
+    <div class="form-group">
+      <label data-i18n="labelName">이름</label>
+      <input type="text" id="input-name" data-i18n-ph="phName" placeholder="홍길동">
+    </div>
+
+    <div class="form-group">
+      <label data-i18n="labelEmail">이메일</label>
+      <input type="email" id="input-email" data-i18n-ph="phEmail" placeholder="example@email.com">
+    </div>
+
+    <div class="form-group">
+      <label data-i18n="labelPlugin">구매 플러그인</label>
+      <select id="input-plugin">
+        <option value="Purge & Save">Purge &amp; Save</option>
+        <option value="Image Compare">Image Compare</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label data-i18n="labelAmount">입금액</label>
+      <input type="text" id="input-amount" placeholder="30,000">
+    </div>
+
+    <div id="form-status" class="form-status"></div>
+
+    <div class="btn-row">
+      <button class="btn-outline" onclick="goTo(2)">← <span data-i18n="back">이전</span></button>
+      <button class="btn-primary" id="submit-btn" onclick="submitForm()" style="flex:1">
+        <span data-i18n="submitBtn">신청 완료</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div class="success-wrap" id="success-section" style="display:none">
+    <div class="success-icon">✓</div>
+    <div class="success-title" data-i18n="successTitle">신청 완료!</div>
+    <p class="success-desc" data-i18n="successDesc">
+      정보가 정상적으로 접수되었습니다.<br>
+      입금 확인 후 <strong style="color:var(--accent)">24시간 이내</strong>에<br>
+      입력하신 이메일로 라이센스 키를 보내드립니다.
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── i18n ──────────────────────────────────────────────────────
+const LANGS = {
+  ko: {
+    badge:       'SketchUp Plugin',
+    title:       'Purge &amp; <em>Save</em>',
+    subtitle:    '스케치업 작업 파일을 더 가볍고 빠르게.<br>미사용 항목 자동 정리 + 저장 알림 타이머까지.',
+    feat1t:      '스마트 Purge',
+    feat1d:      'Components, Materials, Tags, Styles 미사용 항목을 한 번에 정리합니다.',
+    feat2t:      '저장 알림 타이머',
+    feat2d:      'Auto Save 없이도 주기적 저장 알림으로 작업 손실을 방지합니다.',
+    feat3t:      '파일 용량 모니터',
+    feat3d:      '실시간으로 파일 크기를 확인하고 작업 시간을 추적합니다.',
+    priceLabel:  '/ 영구 라이센스',
+    ctaBuy:      '구매하기',
+    step2Label:  'Step 2 — 결제',
+    step2Title:  '계좌로 입금해 주세요',
+    step2Desc:   '아래 계좌로 금액을 이체해 주세요.<br>입금 확인 후 24시간 이내 라이센스 키를 이메일로 발송합니다.',
+    copyBtn:     '계좌번호 복사',
+    noticeTitle: '💡 입금 시 유의사항',
+    noticeDesc:  '입금자명을 <strong>이름+이메일 앞 4자리</strong>로 해주시면 확인이 빠릅니다.<br>예: 홍길동hong / John Doejohn',
+    back:        '이전',
+    nextStep:    '입금 완료 → 정보 입력',
+    step3Label:  'Step 3 — 정보 입력',
+    step3Title:  '라이센스 발급 신청',
+    step3Desc:   '입금 후 아래 정보를 입력해주세요.<br>확인 즉시 이메일로 라이센스 키를 발송합니다.',
+    labelName:   '이름',
+    labelEmail:  '이메일',
+    labelPlugin: '구매 플러그인',
+    labelAmount: '입금액',
+    phName:      '홍길동',
+    phEmail:     'example@email.com',
+    submitBtn:   '신청 완료',
+    successTitle:'신청 완료!',
+    successDesc: '정보가 정상적으로 접수되었습니다.<br>입금 확인 후 <strong style="color:var(--accent)">24시간 이내</strong>에<br>입력하신 이메일로 라이센스 키를 보내드립니다.',
+    errName:     '이름을 입력해주세요.',
+    errEmail:    '올바른 이메일을 입력해주세요.',
+    errAmount:   '입금액을 입력해주세요.',
+    sending:     '전송 중...',
+    errSend:     '전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+  },
+  en: {
+    badge:       'SketchUp Plugin',
+    title:       'Purge &amp; <em>Save</em>',
+    subtitle:    'Keep your SketchUp files lighter and faster.<br>Auto-cleanup of unused items + save reminder timer.',
+    feat1t:      'Smart Purge',
+    feat1d:      'Clean up unused Components, Materials, Tags, and Styles all at once.',
+    feat2t:      'Save Reminder',
+    feat2d:      'Get notified to save regularly — no need for Auto Save lag.',
+    feat3t:      'File Size Monitor',
+    feat3d:      'Track your file size in real time and monitor total work hours.',
+    priceLabel:  '/ Lifetime License',
+    ctaBuy:      'Buy Now',
+    step2Label:  'Step 2 — Payment',
+    step2Title:  'Transfer to Account',
+    step2Desc:   'Please transfer the amount to the account below.<br>Your license key will be sent within 24 hours after confirmation.',
+    copyBtn:     'Copy Account Number',
+    noticeTitle: '💡 Payment Notes',
+    noticeDesc:  'Include your <strong>name + first 4 chars of email</strong> as transfer memo for faster processing.<br>e.g. John Doejohn',
+    back:        'Back',
+    nextStep:    'Paid → Enter Info',
+    step3Label:  'Step 3 — Your Info',
+    step3Title:  'Request License',
+    step3Desc:   'Fill in your details after payment.<br>Your license key will be sent to your email immediately after verification.',
+    labelName:   'Full Name',
+    labelEmail:  'Email',
+    labelPlugin: 'Plugin',
+    labelAmount: 'Amount Paid',
+    phName:      'John Doe',
+    phEmail:     'example@email.com',
+    submitBtn:   'Submit',
+    successTitle:'Submitted!',
+    successDesc: 'Your information has been received.<br>Your license key will be sent to your email<br><strong style="color:var(--accent)">within 24 hours</strong> after payment verification.',
+    errName:     'Please enter your name.',
+    errEmail:    'Please enter a valid email.',
+    errAmount:   'Please enter the amount paid.',
+    sending:     'Sending...',
+    errSend:     'An error occurred. Please try again.',
+  }
+};
+
+let lang = 'ko';
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('.lang-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent.trim() === (l === 'ko' ? '한국어' : 'English')));
+
+  const t = LANGS[l];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (t[key]) el.textContent = t[key];
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const key = el.dataset.i18nHtml;
+    if (t[key]) el.innerHTML = t[key];
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    const key = el.dataset.i18nPh;
+    if (t[key]) el.placeholder = t[key];
+  });
+  // h1 title
+  document.querySelector('h1').innerHTML = t.title;
+}
+
+// ── Page navigation ────────────────────────────────────────────
+let currentPage = 1;
+
+function goTo(n) {
+  document.getElementById(`page-${currentPage}`).classList.remove('active');
+  document.getElementById(`page-${n}`).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d, i) =>
+    d.classList.toggle('active', i + 1 === n));
+  currentPage = n;
+  window.scrollTo(0, 0);
+}
+
+// ── Copy account ───────────────────────────────────────────────
+function copyAccount() {
+  navigator.clipboard.writeText('110-356-238674').then(() => {
+    const btn = document.getElementById('copy-btn');
+    const lbl = document.getElementById('copy-label');
+    btn.classList.add('copied');
+    lbl.textContent = '✓ 복사됨';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      lbl.textContent = LANGS[lang].copyBtn;
+    }, 2000);
+  });
+}
+
+// ── Form submit → Google Sheets ────────────────────────────────
+// ⚠️ 아래 URL을 Google Apps Script 배포 URL로 교체하세요
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx8zXBvlPoB5hgJ_BZQGKC9vomlnakQVdIUM_Hgny6bkTYyBzwPZ8qkDzD658N5Msx-/exec';
+
+async function submitForm() {
+  const t = LANGS[lang];
+  const name   = document.getElementById('input-name').value.trim();
+  const email  = document.getElementById('input-email').value.trim();
+  const plugin = document.getElementById('input-plugin').value;
+  const amount = document.getElementById('input-amount').value.trim();
+  const status = document.getElementById('form-status');
+  const btn    = document.getElementById('submit-btn');
+
+  // Validation
+  if (!name)                         return showStatus(t.errName, 'error');
+  if (!email || !email.includes('@')) return showStatus(t.errEmail, 'error');
+  if (!amount)                       return showStatus(t.errAmount, 'error');
+
+  btn.disabled = true;
+  showStatus(t.sending, 'loading');
+
+  const payload = {
+    name, email, plugin, amount,
+    date: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+    status: '대기 중'
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // no-cors 모드에서는 응답 확인 불가 → 성공으로 처리
+    status.style.display = 'none';
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('success-section').style.display = 'block';
+
+  } catch (e) {
+    showStatus(t.errSend, 'error');
+    btn.disabled = false;
+  }
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('form-status');
+  el.textContent = msg;
+  el.className = `form-status ${type}`;
+}
+</script>
+</body>
+</html>
