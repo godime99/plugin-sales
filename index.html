@@ -265,6 +265,43 @@
   }
   .glow-1 { width: 300px; height: 300px; background: rgba(200,240,74,.06); top: 10%; left: -5%; }
   .glow-2 { width: 400px; height: 400px; background: rgba(74,240,200,.04); bottom: 5%; right: -10%; }
+
+  /* ── Plugin selector ───────────────────────────────── */
+  .plugin-list {
+    width: 100%; display: flex; flex-direction: column; gap: 12px;
+    margin-bottom: 24px;
+  }
+  .plugin-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; transition: border-color .2s;
+  }
+  .plugin-card.selected { border-color: var(--accent); }
+  .plugin-info { display: flex; align-items: center; gap: 14px; flex: 1; }
+  .plugin-icon { font-size: 28px; flex-shrink: 0; }
+  .plugin-details { flex: 1; }
+  .plugin-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .plugin-desc { font-size: 12px; color: var(--muted); }
+  .plugin-price { font-size: 16px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+  .plugin-counter { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .counter-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .counter-btn:hover { background: var(--surf2); border-color: var(--accent); color: var(--accent); }
+  .counter-val { font-size: 18px; font-weight: 800; min-width: 24px; text-align: center; }
+  .counter-val.active { color: var(--accent); }
+  .total-bar {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 20px; margin-bottom: 20px;
+    font-size: 14px; font-weight: 600;
+  }
+  #total-price { margin-left: auto; font-size: 22px; font-weight: 800; color: var(--accent); }
 </style>
 </head>
 <body>
@@ -289,39 +326,59 @@
 
   <div class="intro-wrap">
     <div class="badge" data-i18n="badge">SketchUp Plugin</div>
-
-    <h1 data-i18n-html="title">Purge &amp; <em>Save</em></h1>
-
+    <h1 data-i18n-html="title">SketchUp <em>Plugins</em></h1>
     <p class="subtitle" data-i18n="subtitle">
-      스케치업 작업 파일을 더 가볍고 빠르게.<br>
-      미사용 항목 자동 정리 + 저장 알림 타이머까지.
+      스케치업 작업을 더 스마트하게.<br>
+      필요한 플러그인을 선택하세요.
     </p>
 
-    <div class="features">
-      <div class="feat-card">
-        <div class="feat-icon">🗑️</div>
-        <div class="feat-title" data-i18n="feat1t">스마트 Purge</div>
-        <div class="feat-desc" data-i18n="feat1d">Components, Materials, Tags, Styles 미사용 항목을 한 번에 정리합니다.</div>
+    <!-- 플러그인 선택 카드 -->
+    <div class="plugin-list">
+
+      <!-- Purge & Save -->
+      <div class="plugin-card" id="card-purge">
+        <div class="plugin-info">
+          <div class="plugin-icon">🗑️</div>
+          <div class="plugin-details">
+            <div class="plugin-name">Purge &amp; Save</div>
+            <div class="plugin-desc" data-i18n="purgeDesc">미사용 항목 정리 + 저장 알림 타이머</div>
+          </div>
+          <div class="plugin-price">₩2,500</div>
+        </div>
+        <div class="plugin-counter">
+          <button class="counter-btn" onclick="changeQty('purge', -1)">−</button>
+          <span class="counter-val" id="qty-purge">0</span>
+          <button class="counter-btn" onclick="changeQty('purge', 1)">+</button>
+        </div>
       </div>
-      <div class="feat-card">
-        <div class="feat-icon">⏱️</div>
-        <div class="feat-title" data-i18n="feat2t">저장 알림 타이머</div>
-        <div class="feat-desc" data-i18n="feat2d">Auto Save 없이도 주기적 저장 알림으로 작업 손실을 방지합니다.</div>
+
+      <!-- Image Compare -->
+      <div class="plugin-card" id="card-compare">
+        <div class="plugin-info">
+          <div class="plugin-icon">🖼️</div>
+          <div class="plugin-details">
+            <div class="plugin-name">Image Compare</div>
+            <div class="plugin-desc" data-i18n="compareDesc">두 이미지를 4가지 방식으로 비교</div>
+          </div>
+          <div class="plugin-price">₩4,000</div>
+        </div>
+        <div class="plugin-counter">
+          <button class="counter-btn" onclick="changeQty('compare', -1)">−</button>
+          <span class="counter-val" id="qty-compare">0</span>
+          <button class="counter-btn" onclick="changeQty('compare', 1)">+</button>
+        </div>
       </div>
-      <div class="feat-card">
-        <div class="feat-icon">📊</div>
-        <div class="feat-title" data-i18n="feat3t">파일 용량 모니터</div>
-        <div class="feat-desc" data-i18n="feat3d">실시간으로 파일 크기를 확인하고 작업 시간을 추적합니다.</div>
-      </div>
+
     </div>
 
-    <div class="price-tag">
-      <span class="price-amount">₩ 3,000</span>
-      <span class="price-period" data-i18n="priceLabel">/ 영구 라이센스</span>
+    <!-- 총 금액 -->
+    <div class="total-bar">
+      <span data-i18n="totalLabel">총 금액</span>
+      <span id="total-price">₩0</span>
+      <span id="total-count" style="font-size:13px; color:var(--muted)"></span>
     </div>
 
-    <br>
-    <button class="btn-primary" onclick="goTo(2)">
+    <button class="btn-primary" onclick="goToOrder()" id="btn-order" style="opacity:.4; pointer-events:none;">
       <span data-i18n="ctaBuy">구매하기</span>
       <span>→</span>
     </button>
@@ -393,9 +450,8 @@
 
     <div class="form-group">
       <label data-i18n="labelPlugin">구매 플러그인</label>
-      <select id="input-plugin">
-        <option value="Purge & Save">Purge &amp; Save</option>
-      </select>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 18px; font-size:15px; color:var(--text);" id="selected-plugins">-</div>
+      <input type="hidden" id="hidden-plugins" value="">
     </div>
 
     <div id="form-status" class="form-status"></div>
@@ -451,8 +507,11 @@
 const LANGS = {
   ko: {
     badge:       'SketchUp Plugin',
-    title:       'Purge &amp; <em>Save</em>',
-    subtitle:    '스케치업 작업 파일을 더 가볍고 빠르게.<br>미사용 항목 자동 정리 + 저장 알림 타이머까지.',
+    title:       'SketchUp <em>Plugins</em>',
+    subtitle:    '스케치업 작업을 더 스마트하게.<br>필요한 플러그인을 선택하세요.',
+    purgeDesc:   '미사용 항목 정리 + 저장 알림 타이머',
+    compareDesc: '두 이미지를 4가지 방식으로 비교',
+    totalLabel:  '총 금액',
     feat1t:      '스마트 Purge',
     feat1d:      'Components, Materials, Tags, Styles 미사용 항목을 한 번에 정리합니다.',
     feat2t:      '저장 알림 타이머',
@@ -491,8 +550,11 @@ const LANGS = {
   },
   en: {
     badge:       'SketchUp Plugin',
-    title:       'Purge &amp; <em>Save</em>',
-    subtitle:    'Keep your SketchUp files lighter and faster.<br>Auto-cleanup of unused items + save reminder timer.',
+    title:       'SketchUp <em>Plugins</em>',
+    subtitle:    'Work smarter in SketchUp.<br>Select the plugins you need.',
+    purgeDesc:   'Cleanup unused items + save reminder timer',
+    compareDesc: 'Compare two images in 4 different ways',
+    totalLabel:  'Total',
     feat1t:      'Smart Purge',
     feat1d:      'Clean up unused Components, Materials, Tags, and Styles all at once.',
     feat2t:      'Save Reminder',
@@ -555,6 +617,40 @@ function setLang(l) {
   document.querySelector('h1').innerHTML = t.title;
 }
 
+// ── Plugin counter ────────────────────────────────────────
+const PLUGINS = {
+  purge:   { name: 'Purge & Save',  price: 2500 },
+  compare: { name: 'Image Compare', price: 4000 }
+};
+const qty = { purge: 0, compare: 0 };
+
+function changeQty(plugin, delta) {
+  qty[plugin] = Math.max(0, Math.min(1, qty[plugin] + delta));
+  document.getElementById(`qty-${plugin}`).textContent = qty[plugin];
+  document.getElementById(`qty-${plugin}`).className = 'counter-val' + (qty[plugin] > 0 ? ' active' : '');
+  document.getElementById(`card-${plugin}`).classList.toggle('selected', qty[plugin] > 0);
+  updateTotal();
+}
+
+function updateTotal() {
+  const total = Object.keys(qty).reduce((s, k) => s + qty[k] * PLUGINS[k].price, 0);
+  const count = Object.values(qty).reduce((s, v) => s + v, 0);
+  document.getElementById('total-price').textContent = total > 0 ? `₩${total.toLocaleString()}` : '₩0';
+  document.getElementById('total-count').textContent = count > 0 ? `(${count}개)` : '';
+  const btn = document.getElementById('btn-order');
+  btn.style.opacity = count > 0 ? '1' : '.4';
+  btn.style.pointerEvents = count > 0 ? 'auto' : 'none';
+}
+
+function goToOrder() {
+  // 선택된 플러그인 목록을 3페이지 폼에 반영
+  const selected = Object.keys(qty).filter(k => qty[k] > 0).map(k => PLUGINS[k].name);
+  const pluginText = selected.join(', ');
+  document.getElementById('selected-plugins').textContent = pluginText;
+  document.getElementById('hidden-plugins').value = pluginText;
+  goTo(2);
+}
+
 // ── Page navigation ────────────────────────────────────────────
 let currentPage = 1;
 
@@ -589,7 +685,7 @@ async function submitForm() {
   const t = LANGS[lang];
   const name   = document.getElementById('input-name').value.trim();
   const email  = document.getElementById('input-email').value.trim();
-  const plugin = document.getElementById('input-plugin').value;
+  const plugin = document.getElementById('hidden-plugins').value || '-';
   const status = document.getElementById('form-status');
   const btn    = document.getElementById('submit-btn');
 
